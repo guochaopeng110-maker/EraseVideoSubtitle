@@ -1,0 +1,2 @@
+# EraseVideoSubtitle
+利用第三方API实现擦除视频字幕或图片水印的工具
