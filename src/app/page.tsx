@@ -5,6 +5,17 @@ import Sidebar, { EraseTask } from './components/Sidebar/Sidebar';
 import MainDashboard from './components/MainDashboard/MainDashboard';
 import { PollingEngine } from './services/polling/PollingEngine';
 
+const formatError = (err: unknown): string => {
+  if (!err) return '';
+  if (typeof err === 'string') return err;
+  if (typeof err === 'object' && err !== null) {
+    const errorObj = err as Record<string, unknown>;
+    return String(errorObj.message || errorObj.code || JSON.stringify(err));
+  }
+  return String(err);
+};
+
+
 export default function Home() {
   const [mockMode, setMockMode] = useState<boolean>(true);
   const [apiKey, setApiKey] = useState<string>('');
@@ -92,7 +103,7 @@ export default function Home() {
             }
           } else {
             setTaskStatus('failed');
-            setErrorMessage(data.error || '火山引擎状态查询返回了错误指令。');
+            setErrorMessage(formatError(data.error) || '火山引擎状态查询返回了错误指令。');
             updateTasks((prevTasks) =>
               prevTasks.map((t) =>
                 t.id === activeTaskId ? { ...t, status: 'failed' as const } : t
@@ -203,7 +214,7 @@ export default function Home() {
         setActiveTaskId(data.taskId);
       } else {
         setTaskStatus('failed');
-        setErrorMessage(data.error || '火山引擎字幕擦除服务提交失败。');
+        setErrorMessage(formatError(data.error) || '火山引擎字幕擦除服务提交失败。');
         if (activeTaskId) {
           updateTasks((prevTasks) =>
             prevTasks.map((t) => (t.id === activeTaskId ? { ...t, status: 'failed' as const } : t))
@@ -306,7 +317,7 @@ export default function Home() {
               handleStartErase(res.url);
             } else {
               setTaskStatus('failed');
-              setErrorMessage(res.error || '上传文件暂存失败。');
+              setErrorMessage(formatError(res.error) || '上传文件暂存失败。');
               updateTasks((prevTasks) =>
                 prevTasks.map((t) => (t.id === tempTaskId ? { ...t, status: 'failed' as const } : t))
               );
