@@ -577,3 +577,15 @@
   background: rgba(255, 255, 255, 0.01);
 }
 
+.logoBadge {
+  background: var(--gradient-neon);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  color: #ffffff;
+  box-shadow: var(--shadow-glow);
+  letter-spacing: 0.05em;
+}
+
+

@@ -193,9 +193,9 @@ export default function MainDashboard({
   const isCompleted = taskStatus === 'completed' || (mockMode && simulatedStepIndex === 4);
 
   return (
-    <main className={styles.dashboardContainer}>
+    <main className={styles.dashboard}>
       {/* Top Navigation / Mode Control Bar */}
-      <div className={styles.topControlBar}>
+      <div className={styles.topBar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span className={styles.logoBadge}>AI</span>
           <h1 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.05em' }}>
@@ -204,7 +204,7 @@ export default function MainDashboard({
         </div>
 
         {/* Global Mock Mode Toggle Switch */}
-        <div className={styles.toggleWrapper}>
+        <div className={styles.modeToggleContainer}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#ffffff' }}>Mock Mode 演示模式</span>
             <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
