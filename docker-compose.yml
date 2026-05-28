@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erase-video-subtitle
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # 全局火山引擎 API 密钥（可选，若不配置，用户需在网页端设置个人密钥）
+      - VOLCENGINE_API_KEY=${VOLCENGINE_API_KEY:-}
+      # 临时文件清理周期（分钟，默认120分钟过期，15分钟扫描一次）
+      - TEMP_FILE_MAX_AGE_MINS=${TEMP_FILE_MAX_AGE_MINS:-120}
+      - CLEANUP_CRON_INTERVAL_MINS=${CLEANUP_CRON_INTERVAL_MINS:-15}
+      # 显式重写视频公网访问的主机域名，供火山引擎回调拉取。如果不设置，系统将动态提取请求头。
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      # Cpolar 强制覆盖公网代理地址 (内网穿透本地调试用)
+      - NEXT_PUBLIC_FORCE_CPOLAR_URL=${NEXT_PUBLIC_FORCE_CPOLAR_URL:-}
+    volumes:
+      # 将上传视频存储目录挂载到宿主机，确保持久化，避免容器重启导致文件丢失
+      - ./uploads:/app/public/uploads
