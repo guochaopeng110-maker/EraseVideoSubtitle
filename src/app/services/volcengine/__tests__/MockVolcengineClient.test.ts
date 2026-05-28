@@ -17,6 +17,17 @@ describe('MockVolcengineClient', () => {
     expect(response.taskId).toContain('amk-mock-erase-task-');
   });
 
+  it('should return mock task IDs with different prefixes depending on isPro parameter', async () => {
+    const client = new MockVolcengineClient();
+    const videoUrl = 'http://localhost:3000/uploads/test.mp4';
+
+    const responseStd = await client.submitEraseTask(videoUrl, false);
+    expect(responseStd.taskId).toContain('amk-mock-erase-task-std-');
+
+    const responsePro = await client.submitEraseTask(videoUrl, true);
+    expect(responsePro.taskId).toContain('amk-mock-erase-task-pro-');
+  });
+
   it('should return status processing when query is made within 14 seconds of mock creation timestamp', async () => {
     const client = new MockVolcengineClient();
     // Simulate a taskId created right now

@@ -51,6 +51,39 @@ describe('RealVolcengineClient', () => {
     expect(response.error).toBeUndefined();
   });
 
+  it('should call Volcano Engine Pro API when isPro is true, using correct endpoint and mode body parameter', async () => {
+    const mockSuccessResponse = {
+      success: true,
+      task_id: 'amk-tool-erase-video-subtitle-pro-987654321',
+      request_id: 'req-success-pro-123',
+    };
+
+    (global.fetch as Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockSuccessResponse,
+    });
+
+    const videoUrl = 'http://localhost:3000/uploads/my-source-video.mp4';
+    const response = await client.submitEraseTask(videoUrl, true);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://mediakit.cn-beijing.volces.com/api/v1/tools/erase-video-subtitle-pro',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ video_url: videoUrl, mode: 'Subtitle' }),
+      }
+    );
+
+    expect(response.success).toBe(true);
+    expect(response.taskId).toBe('amk-tool-erase-video-subtitle-pro-987654321');
+    expect(response.requestId).toBe('req-success-pro-123');
+  });
+
   it('should parse and return structured error if Volcano Engine API returns an error response', async () => {
     const mockErrorResponse = {
       success: false,

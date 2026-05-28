@@ -18,6 +18,7 @@ const formatError = (err: unknown): string => {
 
 export default function Home() {
   const [mockMode, setMockMode] = useState<boolean>(true);
+  const [isPro, setIsPro] = useState<boolean>(true);
   const [apiKey, setApiKey] = useState<string>('');
   const [videoUrl, setVideoUrl] = useState<string>('');
   
@@ -180,6 +181,7 @@ export default function Home() {
           videoUrl: targetUrl,
           mockMode,
           apiKey: mockMode ? '' : apiKey,
+          isPro,
         }),
       });
 
@@ -382,6 +384,8 @@ export default function Home() {
       <MainDashboard
         mockMode={mockMode}
         onMockModeToggle={handleMockModeToggle}
+        isPro={isPro}
+        onIsProChange={setIsPro}
         videoUrl={videoUrl}
         onVideoUrlChange={handleVideoUrlChange}
         onSubmit={() => handleStartErase()}

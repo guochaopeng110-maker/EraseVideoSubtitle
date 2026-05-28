@@ -31,8 +31,9 @@ export interface VolcengineClient {
   /**
    * 提交异步字幕擦除任务
    * @param videoUrl 待擦除字幕的 Source Video URL
+   * @param isPro 是否启用精细化版（Pro）API
    */
-  submitEraseTask(videoUrl: string): Promise<EraseTaskResponse>;
+  submitEraseTask(videoUrl: string, isPro?: boolean): Promise<EraseTaskResponse>;
 
   /**
    * 查询异步字幕擦除任务状态及结果

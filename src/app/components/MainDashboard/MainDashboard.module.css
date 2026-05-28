@@ -588,4 +588,81 @@
   letter-spacing: 0.05em;
 }
 
+/* Erase Version Selector */
+.versionSelector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.versionCard {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.versionCard:hover {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.versionCardActive {
+  background: rgba(168, 85, 247, 0.03) !important;
+  border-color: var(--accent-purple) !important;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.05);
+}
+
+.versionCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.versionBadge {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.versionBadgeActive {
+  background: var(--gradient-neon) !important;
+  color: #ffffff !important;
+  box-shadow: var(--shadow-glow);
+}
+
+.versionTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.versionTitleActive {
+  color: #ffffff !important;
+}
+
+.versionDesc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+
 

@@ -6,6 +6,8 @@ import styles from './MainDashboard.module.css';
 interface MainDashboardProps {
   mockMode: boolean;
   onMockModeToggle: () => void;
+  isPro: boolean;
+  onIsProChange: (value: boolean) => void;
   videoUrl: string;
   onVideoUrlChange: (url: string) => void;
   onSubmit: () => void;
@@ -46,6 +48,8 @@ const pipelineSteps = [
 export default function MainDashboard({
   mockMode,
   onMockModeToggle,
+  isPro,
+  onIsProChange,
   videoUrl,
   onVideoUrlChange,
   onSubmit,
@@ -445,6 +449,43 @@ export default function MainDashboard({
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                   通过火山引擎 AI MediaKit 技术，智能去除视频硬字幕并融合背景
                 </p>
+              </div>
+
+              {/* Erase Version Selector */}
+              <div className={styles.versionSelector}>
+                <div 
+                  className={`${styles.versionCard} ${!isPro ? styles.versionCardActive : ''}`}
+                  onClick={() => !uploading && onIsProChange(false)}
+                >
+                  <div className={styles.versionCardHeader}>
+                    <span className={`${styles.versionTitle} ${!isPro ? styles.versionTitleActive : ''}`}>
+                      ⚡ 标准版 (Standard)
+                    </span>
+                    <span className={`${styles.versionBadge} ${!isPro ? styles.versionBadgeActive : ''}`}>
+                      推荐
+                    </span>
+                  </div>
+                  <p className={styles.versionDesc}>
+                    智能识别视频底层硬字幕区域并融合还原背景。速度快、稳定性高，性价比优异，适合常规 Vlog、电影解说等硬字幕。
+                  </p>
+                </div>
+
+                <div 
+                  className={`${styles.versionCard} ${isPro ? styles.versionCardActive : ''}`}
+                  onClick={() => !uploading && onIsProChange(true)}
+                >
+                  <div className={styles.versionCardHeader}>
+                    <span className={`${styles.versionTitle} ${isPro ? styles.versionTitleActive : ''}`}>
+                      💎 精细化版 (Pro)
+                    </span>
+                    <span className={`${styles.versionBadge} ${isPro ? styles.versionBadgeActive : ''}`}>
+                      高精度
+                    </span>
+                  </div>
+                  <p className={styles.versionDesc}>
+                    专为短剧、多语言（如中英双语）等多层复杂字幕优化。边缘修复更纯净，极小背景细节还原度更高，边缘修饰更细腻。
+                  </p>
+                </div>
               </div>
 
               {/* Hidden File Input */}

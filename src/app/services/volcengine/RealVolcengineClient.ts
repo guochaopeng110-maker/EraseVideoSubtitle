@@ -2,7 +2,8 @@ import { VolcengineClient, EraseTaskResponse, EraseTaskQueryResponse } from './V
 
 export class RealVolcengineClient implements VolcengineClient {
   private apiKey: string;
-  private baseUrl = 'https://mediakit.cn-beijing.volces.com/api/v1/tools/erase-video-subtitle';
+  private standardUrl = 'https://mediakit.cn-beijing.volces.com/api/v1/tools/erase-video-subtitle';
+  private proUrl = 'https://mediakit.cn-beijing.volces.com/api/v1/tools/erase-video-subtitle-pro';
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
@@ -11,17 +12,20 @@ export class RealVolcengineClient implements VolcengineClient {
   /**
    * 提交真实异步字幕擦除任务到火山引擎
    */
-  async submitEraseTask(videoUrl: string): Promise<EraseTaskResponse> {
+  async submitEraseTask(videoUrl: string, isPro?: boolean): Promise<EraseTaskResponse> {
     try {
-      const response = await fetch(this.baseUrl, {
+      const targetUrl = isPro ? this.proUrl : this.standardUrl;
+      const requestBody = isPro
+        ? { video_url: videoUrl, mode: 'Subtitle' }
+        : { video_url: videoUrl };
+
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify({
-          video_url: videoUrl,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();

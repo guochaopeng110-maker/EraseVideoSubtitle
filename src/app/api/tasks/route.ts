@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     CleanupScheduler.start();
 
     const body = await request.json().catch(() => ({}));
-    const { videoUrl, mockMode, apiKey } = body;
+    const { videoUrl, mockMode, apiKey, isPro } = body;
 
     // Behavior 4: Validate parameters
     if (!videoUrl || typeof videoUrl !== 'string') {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     // Behavior 5: If Mock Mode is active, delegate to MockVolcengineClient
     if (mockMode) {
       const client = new MockVolcengineClient();
-      const response = await client.submitEraseTask(videoUrl);
+      const response = await client.submitEraseTask(videoUrl, isPro);
       return NextResponse.json(response);
     }
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     // Delegate to RealVolcengineClient
     const client = new RealVolcengineClient(resolvedKey);
-    const response = await client.submitEraseTask(videoUrl);
+    const response = await client.submitEraseTask(videoUrl, isPro);
 
     // If Volcengine returned an API error, forward with the status code or structure
     if (!response.success && response.error) {
