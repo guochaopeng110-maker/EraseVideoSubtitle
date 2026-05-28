@@ -6,14 +6,16 @@ import styles from './Sidebar.module.css';
 export interface EraseTask {
   id: string;
   name: string;
-  status: 'uploading' | 'processing' | 'completed' | 'failed';
+  status: 'uploading' | 'processing' | 'completed' | 'failed' | 'cancelled';
   videoUrl?: string;
   cleanedVideoUrl?: string;
   createdAt: number;
+  logs?: string[];
+  pollCount?: number;
+  elapsedSeconds?: number;
 }
 
 interface SidebarProps {
-  mockMode: boolean;
   apiKey: string;
   onApiKeyChange: (key: string) => void;
   tasks?: EraseTask[];
@@ -22,7 +24,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({
-  mockMode,
   apiKey,
   onApiKeyChange,
   tasks = [],
@@ -63,23 +64,19 @@ export default function Sidebar({
           <div className={styles.statusIndicator}>
             <div
               className={`${styles.statusDot} ${
-                mockMode
-                  ? styles.statusDotMock
-                  : apiKey
+                apiKey
                   ? styles.statusDotConnected
                   : styles.statusDotDisconnected
               }`}
             />
             <span
               style={{
-                color: mockMode
-                  ? 'var(--accent-purple)'
-                  : apiKey
+                color: apiKey
                   ? 'var(--accent-green)'
                   : 'var(--text-muted)',
               }}
             >
-              {mockMode ? 'Mock 模拟' : apiKey ? '已连接' : '未配置'}
+              {apiKey ? '已连接' : '未配置'}
             </span>
           </div>
         </div>
@@ -92,10 +89,9 @@ export default function Sidebar({
             id="apiKeyInput"
             type="password"
             className={styles.keyInput}
-            placeholder={mockMode ? "MOCK_MODE_ACTIVE" : "输入 Authorization Bearer Key"}
-            value={mockMode ? "" : apiKey}
+            placeholder="输入 Authorization Bearer Key"
+            value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
-            disabled={mockMode}
           />
         </div>
       </div>
@@ -147,6 +143,9 @@ export default function Sidebar({
               } else if (task.status === 'failed') {
                 statusLabel = '失败';
                 statusClass = styles.tagFailed;
+              } else if (task.status === 'cancelled') {
+                statusLabel = '已取消';
+                statusClass = styles.tagCancelled;
               }
 
               const formattedTime = new Date(task.createdAt).toLocaleTimeString('zh-CN', {
@@ -176,9 +175,6 @@ export default function Sidebar({
                   <div className={styles.taskMeta}>
                     <span className={styles.taskTime}>
                       {formattedDate} {formattedTime}
-                    </span>
-                    <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>
-                      {task.id.startsWith('amk-mock') ? 'Mock 模式' : '真实 API'}
                     </span>
                   </div>
                 </div>

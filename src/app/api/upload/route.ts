@@ -28,8 +28,11 @@ export async function POST(request: Request) {
     const safeName = path.basename(originalName);
 
     // Resolve the active request origin dynamically to build the public URL
-    const requestUrl = new URL(request.url);
-    const origin = requestUrl.origin;
+    // Supports reverse proxies like cpolar / ngrok by reading x-forwarded headers
+    // Priority: 1. PUBLIC_URL env variable (explicit override for packaging) -> 2. Forwarded Host -> 3. Request Origin
+    const hostHeader = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const protoHeader = request.headers.get('x-forwarded-proto') || 'http';
+    const origin = process.env.PUBLIC_URL || (hostHeader ? `${protoHeader}://${hostHeader}` : new URL(request.url).origin);
 
     // Use our LocalDiskStorageAdapter deep module
     const storage = new LocalDiskStorageAdapter(origin);

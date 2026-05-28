@@ -13,20 +13,7 @@ describe('GET /api/tasks/[id]', () => {
     vi.stubEnv('VOLCENGINE_API_KEY', '');
   });
 
-  it('should auto-detect mock taskId and return success via MockVolcengineClient', async () => {
-    const mockTaskId = `amk-mock-erase-task-${Date.now()}`;
-    const request = new Request(`http://localhost:3000/api/tasks/${mockTaskId}`);
-    
-    const response = await GET(request, { params: { id: mockTaskId } });
-    expect(response.status).toBe(200);
-
-    const json = await response.json();
-    expect(json.success).toBe(true);
-    expect(json.taskId).toBe(mockTaskId);
-    expect(json.status).toBe('processing'); // since it is created right now
-  });
-
-  it('should delegate to RealVolcengineClient when taskId does not have mock prefix and apiKey is supplied in Authorization header', async () => {
+  it('should delegate to RealVolcengineClient when apiKey is supplied in Authorization header', async () => {
     const mockSuccessResponse = {
       success: true,
       task_id: 'amk-real-task-111',
@@ -105,7 +92,7 @@ describe('GET /api/tasks/[id]', () => {
     );
   });
 
-  it('should return a 401 error in real mode if no API Key is provided in headers or environment', async () => {
+  it('should return a 401 error if no API Key is provided in headers or environment', async () => {
     const taskId = 'amk-real-task-333';
     const request = new Request(`http://localhost:3000/api/tasks/${taskId}`);
 
@@ -148,14 +135,29 @@ describe('GET /api/tasks/[id]', () => {
   });
 
   it('should immediately trigger physical cleanup of local uploaded file when task reaches completed state', async () => {
+    vi.stubEnv('VOLCENGINE_API_KEY', 'env-key-999');
+
     // 1. Spy on fs.unlink
     const unlinkSpy = vi.spyOn(fs, 'unlink').mockResolvedValue(undefined);
 
-    // 2. Simulate a taskId older than 14 seconds so it completes immediately
-    const fifteenSecondsAgo = Date.now() - 15000;
-    const taskId = `amk-mock-erase-task-${fifteenSecondsAgo}`;
+    // 2. Mock Volcengine query to return completed
+    const mockSuccessResponse = {
+      success: true,
+      task_id: 'amk-real-task-555',
+      status: 'completed',
+      result: {
+        video_url: 'http://localhost/output.mp4',
+        duration: 45,
+      },
+    };
 
-    // 3. Supply local source videoUrl in the query parameters
+    (global.fetch as Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockSuccessResponse,
+    });
+
+    const taskId = 'amk-real-task-555';
     const request = new Request(`http://localhost:3000/api/tasks/${taskId}?videoUrl=http://localhost:3000/uploads/123-source-video.mp4`);
 
     const response = await GET(request, { params: { id: taskId } });
@@ -165,7 +167,7 @@ describe('GET /api/tasks/[id]', () => {
     expect(json.success).toBe(true);
     expect(json.status).toBe('completed');
 
-    // 4. Assert that fs.unlink was called to physically delete the source video
+    // 3. Assert that fs.unlink was called to physically delete the source video
     expect(unlinkSpy).toHaveBeenCalled();
     const expectedPathPart = path.join('public', 'uploads', '123-source-video.mp4');
     expect(unlinkSpy.mock.calls[0][0].toString()).toContain(expectedPathPart);

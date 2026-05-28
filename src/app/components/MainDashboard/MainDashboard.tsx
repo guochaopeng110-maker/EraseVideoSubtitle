@@ -4,8 +4,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import styles from './MainDashboard.module.css';
 
 interface MainDashboardProps {
-  mockMode: boolean;
-  onMockModeToggle: () => void;
   isPro: boolean;
   onIsProChange: (value: boolean) => void;
   videoUrl: string;
@@ -15,39 +13,19 @@ interface MainDashboardProps {
   uploadProgress: number | null;
   uploading: boolean;
   
-  taskStatus: 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
+  taskStatus: 'idle' | 'uploading' | 'processing' | 'completed' | 'failed' | 'cancelled';
   activeTaskId: string;
   errorMessage: string;
   onReset: () => void;
+  onCancel?: () => void;
   cleanedVideoUrl?: string; // High fidelity AI subtitle erase product url
+  
+  // Real-time Logs Console
+  taskLogs: string[];
+  elapsedSeconds: number;
 }
 
-const pipelineSteps = [
-  {
-    name: '参数规格检查',
-    desc: '验证视频 URL 可访问性、分辨率限制及火山引擎服务认证参数',
-    icon: '🔍',
-  },
-  {
-    name: '字幕特征帧提取',
-    desc: 'AI 智能检测硬字幕区域，分割并追踪文本对应的时间序列帧',
-    icon: '🎞️',
-  },
-  {
-    name: 'AI 空间修复',
-    desc: '深度像素级多帧联合修复技术，融和并生成与原始背景无缝贴合的画面',
-    icon: '🎛️',
-  },
-  {
-    name: '任务渲染导出',
-    desc: '重新生成去除硬字幕的 Cleaned Video，导出 1080P 高清 MP4 文件',
-    icon: '✨',
-  },
-];
-
 export default function MainDashboard({
-  mockMode,
-  onMockModeToggle,
   isPro,
   onIsProChange,
   videoUrl,
@@ -60,9 +38,13 @@ export default function MainDashboard({
   activeTaskId,
   errorMessage,
   onReset,
+  onCancel,
   cleanedVideoUrl,
+  taskLogs = [],
+  elapsedSeconds = 0,
 }: MainDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   
   // Dual Player Refs & Synchronization Controls
@@ -70,27 +52,12 @@ export default function MainDashboard({
   const cleanedVideoRef = useRef<HTMLVideoElement>(null);
   const syncLockRef = useRef<boolean>(false);
 
-  // Simulated step index for Mock Mode progression
-  const [simulatedStepIndex, setSimulatedStepIndex] = useState<number>(0);
-
-  // Set up mock mode dynamic progression timers
+  // Auto-scroll terminal box to bottom when new logs arrive
   useEffect(() => {
-    if (taskStatus === 'processing' && mockMode) {
-      setSimulatedStepIndex(0);
-      
-      const t1 = setTimeout(() => setSimulatedStepIndex(1), 2500);  // Step 2 active
-      const t2 = setTimeout(() => setSimulatedStepIndex(2), 6000);  // Step 3 active
-      const t3 = setTimeout(() => setSimulatedStepIndex(3), 10000); // Step 4 active
-      const t4 = setTimeout(() => setSimulatedStepIndex(4), 14000); // Simulated Completed!
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-        clearTimeout(t4);
-      };
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [taskStatus, mockMode]);
+  }, [taskLogs]);
 
   // Synchronized Multi-Media Playback controllers with feedback suppression
   const handlePlay = () => {
@@ -181,50 +148,39 @@ export default function MainDashboard({
     }
   };
 
-  const isStepCompleted = (index: number) => {
-    if (taskStatus === 'completed') return true;
-    if (mockMode) return simulatedStepIndex > index;
-    return false;
+  // Check log message prefixes to apply colorful terminal themes
+  const getLineClass = (logLine: string) => {
+    // Extracted after timestamp [HH:mm:ss]
+    const content = logLine.substring(10);
+    if (content.includes('❌') || content.includes('failed') || content.includes('error')) {
+      return styles.terminalError;
+    }
+    if (content.includes('🟢') || content.includes('✨') || content.includes('success') || content.includes('completed')) {
+      return styles.terminalSuccess;
+    }
+    if (content.includes('⚠️') || content.includes('warning') || content.includes('stat')) {
+      return styles.terminalWarn;
+    }
+    return '';
   };
 
-  const isStepActive = (index: number) => {
-    if (taskStatus === 'completed') return false;
-    if (mockMode) return simulatedStepIndex === index;
-    // For real mode, active is decided by processing state
-    return taskStatus === 'processing' && index === 0; // simple fallback
-  };
-
-  const isCompleted = taskStatus === 'completed' || (mockMode && simulatedStepIndex === 4);
+  const isCompleted = taskStatus === 'completed';
 
   return (
     <main className={styles.dashboard}>
-      {/* Top Navigation / Mode Control Bar */}
+      {/* Top Navigation Bar */}
       <div className={styles.topBar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginRight: 'auto' }}>
           <span className={styles.logoBadge}>AI</span>
           <h1 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.05em' }}>
             SUBTITLE ERASER
           </h1>
         </div>
-
-        {/* Global Mock Mode Toggle Switch */}
-        <div className={styles.modeToggleContainer}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#ffffff' }}>Mock Mode 演示模式</span>
-            <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
-              {mockMode ? '🟢 开启（免 API 配置，零成本仿真）' : '🔴 关闭（直连火山引擎付费端）'}
-            </span>
-          </div>
-          <label className={styles.switch} htmlFor="mockModeToggle">
-            <input
-              id="mockModeToggle"
-              type="checkbox"
-              checked={mockMode}
-              disabled={taskStatus === 'processing' || uploading}
-              onChange={onMockModeToggle}
-            />
-            <span className={styles.slider} />
-          </label>
+        
+        {/* Connection status snippet inside Topbar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-glass)' }}>
+          <div className={styles.pulsingDot} style={{ backgroundColor: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>生产环境在线 (Production Ready)</span>
         </div>
       </div>
 
@@ -232,16 +188,16 @@ export default function MainDashboard({
       <div className={styles.workspaceContent}>
         <div className={styles.workstationCard}>
           
-          {/* 1. Processing (AI Pipeline checklist) View */}
+          {/* 1. Processing (AI Log Terminal Console) View */}
           {taskStatus === 'processing' && !isCompleted && (
             <div className={styles.pipelineContainer}>
               <div className={styles.pipelineHeader}>
-                <div>
+                <div style={{ textAlign: 'left' }}>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
-                    ⚡ AI 字幕擦除分析中...
+                    ⚡ AI 擦除任务后台分析中
                   </h3>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-                    系统正在通过 Volcano MediaKit 执行无损硬字幕擦除，这通常需要几十秒时间...
+                    正在实时同步火山引擎 API 异步处理状态流与日志追踪...
                   </p>
                 </div>
                 {activeTaskId && (
@@ -251,62 +207,118 @@ export default function MainDashboard({
                 )}
               </div>
 
-              {/* Steps List */}
-              <div className={styles.pipelineStepsList}>
-                {pipelineSteps.map((step, idx) => {
-                  const completed = isStepCompleted(idx);
-                  const active = isStepActive(idx);
-                  
-                  return (
-                    <div 
-                      key={idx} 
-                      className={`${styles.pipelineStep} ${
-                        active ? styles.pipelineStepActive : ''
-                      } ${
-                        completed ? styles.pipelineStepCompleted : ''
-                      }`}
+              {/* 暂存视频公网 URL 栏目 */}
+              {videoUrl && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '12px',
+                  padding: '0.875rem 1.25rem',
+                  marginTop: '-0.5rem',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.05)'
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', flexGrow: 1, minWidth: 0, textAlign: 'left' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      生成的临时公网视频源 URL：
+                    </span>
+                    <a
+                      href={videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: '0.8125rem',
+                        color: 'var(--accent-cyan)',
+                        textDecoration: 'underline',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
                     >
-                      <div className={`${styles.pipelineStepIcon} ${
-                        active ? styles.pipelineStepIconActive : ''
-                      } ${
-                        completed ? styles.pipelineStepIconCompleted : ''
-                      }`}>
-                        {completed ? (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        ) : active ? (
-                          <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <line x1="12" y1="2" x2="12" y2="6" />
-                            <line x1="12" y1="18" x2="12" y2="22" />
-                            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-                            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-                            <line x1="2" y1="12" x2="6" y2="12" />
-                            <line x1="18" y1="12" x2="22" y2="12" />
-                            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-                            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-                          </svg>
-                        ) : (
-                          <span>{step.icon}</span>
-                        )}
-                      </div>
-                      <div className={styles.pipelineStepText}>
-                        <span className={`${styles.pipelineStepName} ${
-                          active ? styles.pipelineStepNameActive : ''
-                        } ${
-                          completed ? styles.pipelineStepNameCompleted : ''
-                        }`}>
-                          {step.name} {active && ' (执行中)'} {completed && ' (完成)'}
-                        </span>
-                        <p className={`${styles.pipelineStepDesc} ${
-                          active ? styles.pipelineStepDescActive : ''
-                        }`}>
-                          {step.desc}
-                        </p>
-                      </div>
+                      {videoUrl}
+                    </a>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(videoUrl);
+                      alert('已成功复制临时公网视频 URL 到剪贴板！');
+                    }}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      padding: '0.4rem 0.8rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0
+                    }}
+                  >
+                    复制链接
+                  </button>
+                </div>
+              )}
+
+
+              {/* Terminal Log Console Header */}
+              <div className={styles.terminalLogHeader}>
+                <span>&gt;_ 任务日志控制台</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div className={styles.stopwatchWrapper}>
+                    <div className={styles.pulsingDot} />
+                    <span>已耗时: {elapsedSeconds}s</span>
+                  </div>
+                  {onCancel && (
+                    <button
+                      onClick={onCancel}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        borderRadius: '6px',
+                        padding: '0.25rem 0.6rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: '#f87171',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      </svg>
+                      <span>终止任务</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable Terminal Console Box */}
+              <div className={styles.terminalBox}>
+                {taskLogs.length === 0 ? (
+                  <div className={styles.terminalLine}>
+                    [SYSTEM] 🔍 正在初始化任务分析管道...
+                  </div>
+                ) : (
+                  taskLogs.map((log, index) => (
+                    <div key={index} className={`${styles.terminalLine} ${getLineClass(log)}`}>
+                      {log}
                     </div>
-                  );
-                })}
+                  ))
+                )}
+                <div ref={terminalEndRef} />
               </div>
             </div>
           )}
@@ -315,7 +327,7 @@ export default function MainDashboard({
           {isCompleted && (
             <div className={styles.comparisonContainer}>
               <div className={styles.comparisonHeader}>
-                <div>
+                <div style={{ textAlign: 'left' }}>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
                     ✨ 硬字幕擦除效果对比
                   </h3>
@@ -336,6 +348,7 @@ export default function MainDashboard({
                 <div className={styles.videoCard}>
                   <div className={styles.videoTag}>原视频 (Source)</div>
                   <video
+                    key={videoUrl || 'empty-source'}
                     ref={sourceVideoRef}
                     className={styles.videoPlayer}
                     src={videoUrl}
@@ -352,9 +365,10 @@ export default function MainDashboard({
                 <div className={styles.videoCard}>
                   <div className={`${styles.videoTag} ${styles.videoTagCleaned}`}>擦除后 (Cleaned)</div>
                   <video
+                    key={cleanedVideoUrl || 'empty-cleaned'}
                     ref={cleanedVideoRef}
                     className={styles.videoPlayer}
-                    src={cleanedVideoUrl || (mockMode ? 'https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4' : '')}
+                    src={cleanedVideoUrl}
                     controls
                     playsInline
                     onPlay={handlePlay}
@@ -386,18 +400,18 @@ export default function MainDashboard({
                   </svg>
                   <div style={{ textAlign: 'left' }}>
                     <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      产物下载时效警告
+                      产物下载时效与清理警告
                     </span>
                     <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.4' }}>
-                      火山引擎对生成视频下载链接施加了 24 小时过期机制。为了释放系统空间，我们已物理删除了您在服务器上传的本地暂存文件。请务必在 24 小时内及时保存最终产物。
+                      火山引擎对生成视频下载链接施加了 24 小时过期机制。为了释放系统空间，我们已物理删除了您在服务器上传的本地暂存文件。请务必在 24 小时内及时下载或保存最终产物。
                     </p>
                   </div>
                 </div>
 
-                {/* Cleaned product links (Mock or real) */}
+                {/* Cleaned product links */}
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                   <a
-                    href={cleanedVideoUrl || (mockMode ? 'https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4' : undefined)}
+                    href={cleanedVideoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={styles.submitBtn}
@@ -437,6 +451,70 @@ export default function MainDashboard({
               <button className={styles.resetBtn} onClick={onReset}>
                 返回工作台重试
               </button>
+            </div>
+          )}
+
+          {/* 5. Cancelled State (Archived Terminal Log) View */}
+          {taskStatus === 'cancelled' && (
+            <div className={styles.pipelineContainer}>
+              <div className={styles.pipelineHeader}>
+                <div style={{ textAlign: 'left' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)' }}>
+                    ❌ 任务已终止 (Cancelled)
+                  </h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
+                    本任务已于处理中被用户手动中止，轮询连接已关闭。
+                  </p>
+                </div>
+                {activeTaskId && (
+                  <span className={styles.pipelineTaskId} style={{
+                    color: 'var(--text-muted)',
+                    background: 'rgba(255,255,255,0.03)',
+                    borderColor: 'rgba(255,255,255,0.08)'
+                  }}>
+                    ID: {activeTaskId.substring(0, 18)}...
+                  </span>
+                )}
+              </div>
+
+              {/* Terminal Log Console Header */}
+              <div className={styles.terminalLogHeader}>
+                <span>&gt;_ 归档日志控制台</span>
+              </div>
+
+              {/* Scrollable Terminal Console Box (Archived Style) */}
+              <div className={styles.terminalBox} style={{
+                borderColor: 'rgba(239, 68, 68, 0.15)',
+                boxShadow: 'inset 0 2px 10px rgba(239, 68, 68, 0.05)',
+                color: 'rgba(255, 255, 255, 0.6)'
+              }}>
+                {taskLogs.map((log, index) => (
+                  <div key={index} className={`${styles.terminalLine} ${getLineClass(log)}`}>
+                    {log}
+                  </div>
+                ))}
+              </div>
+
+              {/* Return Button */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
+                <button
+                  className={styles.submitBtn}
+                  onClick={onReset}
+                  style={{
+                    background: 'var(--gradient-neon)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <span>返回工作台重试</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <polyline points="3 3 3 8 8 8" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
 
@@ -594,16 +672,6 @@ export default function MainDashboard({
 
         </div>
       </div>
-      
-      {/* Local spinner rotation keyframes */}
-      <style jsx global>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-          animation: spin 1.5s linear infinite;
-        }
-      `}</style>
     </main>
   );
 }

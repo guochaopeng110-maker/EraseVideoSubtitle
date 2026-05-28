@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { POST } from '../route';
+import fs from 'fs/promises';
 
 describe('POST /api/tasks', () => {
   beforeEach(() => {
@@ -9,14 +10,13 @@ describe('POST /api/tasks', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.stubEnv('VOLCENGINE_API_KEY', '');
+    vi.restoreAllMocks();
   });
 
   it('should return a 400 error when no videoUrl is provided', async () => {
     const request = new Request('http://localhost:3000/api/tasks', {
       method: 'POST',
-      body: JSON.stringify({
-        mockMode: true,
-      }),
+      body: JSON.stringify({}),
     });
 
     const response = await POST(request);
@@ -27,25 +27,7 @@ describe('POST /api/tasks', () => {
     expect(json.error).toContain('videoUrl is required');
   });
 
-  it('should delegate to MockVolcengineClient and return success when mockMode is true', async () => {
-    const request = new Request('http://localhost:3000/api/tasks', {
-      method: 'POST',
-      body: JSON.stringify({
-        videoUrl: 'http://localhost:3000/uploads/my-mock-video.mp4',
-        mockMode: true,
-      }),
-    });
-
-    const response = await POST(request);
-    expect(response.status).toBe(200);
-
-    const json = await response.json();
-    expect(json.success).toBe(true);
-    expect(json.taskId).toContain('amk-mock-erase-task-');
-    expect(json.requestId).toContain('req-mock-');
-  });
-
-  it('should delegate to RealVolcengineClient and return task info when mockMode is false and apiKey is provided in request body', async () => {
+  it('should delegate to RealVolcengineClient and return task info when apiKey is provided in request body', async () => {
     const mockSuccessResponse = {
       success: true,
       task_id: 'amk-tool-erase-video-subtitle-real-111',
@@ -62,10 +44,12 @@ describe('POST /api/tasks', () => {
       method: 'POST',
       body: JSON.stringify({
         videoUrl: 'http://localhost:3000/uploads/my-real-video.mp4',
-        mockMode: false,
         apiKey: 'user-provided-key-abc',
       }),
     });
+
+    // Mock fs.stat to simulate local file exists since URL contains /uploads/
+    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as any);
 
     const response = await POST(request);
     expect(response.status).toBe(200);
@@ -83,9 +67,11 @@ describe('POST /api/tasks', () => {
         }),
       })
     );
+
+    statSpy.mockRestore();
   });
 
-  it('should fallback to server environment variable VOLCENGINE_API_KEY when mockMode is false and request body has no apiKey', async () => {
+  it('should fallback to server environment variable VOLCENGINE_API_KEY when request body has no apiKey', async () => {
     vi.stubEnv('VOLCENGINE_API_KEY', 'env-server-key-xyz');
 
     const mockSuccessResponse = {
@@ -104,9 +90,11 @@ describe('POST /api/tasks', () => {
       method: 'POST',
       body: JSON.stringify({
         videoUrl: 'http://localhost:3000/uploads/my-real-video.mp4',
-        mockMode: false,
       }),
     });
+
+    // Mock fs.stat to simulate local file exists since URL contains /uploads/
+    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as any);
 
     const response = await POST(request);
     expect(response.status).toBe(200);
@@ -119,10 +107,12 @@ describe('POST /api/tasks', () => {
       expect.stringContaining('erase-video-subtitle'),
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer env-server-key-xyz',
+          'Authorization': 'Bearer env-server-key-xyz',
         }),
       })
     );
+
+    statSpy.mockRestore();
   });
 
   it('should return a 401 error when in real mode and no API key is provided via body or env variables', async () => {
@@ -130,9 +120,11 @@ describe('POST /api/tasks', () => {
       method: 'POST',
       body: JSON.stringify({
         videoUrl: 'http://localhost:3000/uploads/my-real-video.mp4',
-        mockMode: false,
       }),
     });
+
+    // Mock fs.stat to simulate local file exists since URL contains /uploads/
+    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as any);
 
     const response = await POST(request);
     expect(response.status).toBe(401);
@@ -140,5 +132,7 @@ describe('POST /api/tasks', () => {
     const json = await response.json();
     expect(json.success).toBe(false);
     expect(json.error).toContain('Volcengine API Key is missing');
+
+    statSpy.mockRestore();
   });
 });
