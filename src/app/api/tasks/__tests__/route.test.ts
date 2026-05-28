@@ -49,7 +49,7 @@ describe('POST /api/tasks', () => {
     });
 
     // Mock fs.stat to simulate local file exists since URL contains /uploads/
-    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as any);
+    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as unknown as import('fs').Stats);
 
     const response = await POST(request);
     expect(response.status).toBe(200);
@@ -94,7 +94,7 @@ describe('POST /api/tasks', () => {
     });
 
     // Mock fs.stat to simulate local file exists since URL contains /uploads/
-    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as any);
+    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as unknown as import('fs').Stats);
 
     const response = await POST(request);
     expect(response.status).toBe(200);
@@ -124,7 +124,7 @@ describe('POST /api/tasks', () => {
     });
 
     // Mock fs.stat to simulate local file exists since URL contains /uploads/
-    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as any);
+    const statSpy = vi.spyOn(fs, 'stat').mockResolvedValue({} as unknown as import('fs').Stats);
 
     const response = await POST(request);
     expect(response.status).toBe(401);

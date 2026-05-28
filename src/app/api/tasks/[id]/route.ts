@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { RealVolcengineClient } from '../../../services/volcengine/RealVolcengineClient';
-import { LocalDiskStorageAdapter } from '../../../services/storage/LocalDiskStorageAdapter';
 
 /**
  * GET /api/tasks/[id]

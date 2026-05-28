@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       
       try {
         await fs.stat(filePath);
-      } catch (statError) {
+      } catch {
         console.warn(`[API Tasks] Local temporary video file not found: ${filePath}. It might have been physically cleaned up.`);
         return NextResponse.json(
           { 
