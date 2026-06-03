@@ -27,12 +27,40 @@ export async function POST(request: Request) {
     const originalName = file instanceof File ? file.name : `upload_${Date.now()}.mp4`;
     const safeName = path.basename(originalName);
 
-    // Resolve the active request origin dynamically to build the public URL
-    // Supports reverse proxies like cpolar / ngrok by reading x-forwarded headers
-    // Priority: 1. PUBLIC_URL env variable (explicit override for packaging) -> 2. Forwarded Host -> 3. Request Origin
-    const hostHeader = request.headers.get('x-forwarded-host') || request.headers.get('host');
-    const protoHeader = request.headers.get('x-forwarded-proto') || 'http';
-    const origin = process.env.PUBLIC_URL || (hostHeader ? `${protoHeader}://${hostHeader}` : new URL(request.url).origin);
+    // Resolve the active request origin dynamically to build the public URL.
+    // Supports reverse proxies like cpolar / ngrok by reading local proxy API or forwarded headers.
+    let origin = '';
+    
+    // 1. Try to detect cpolar public URL dynamically if cpolar local admin dashboard is running
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    try {
+      const res = await fetch('http://127.0.0.1:4040', { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const html = await res.text();
+        const match = html.match(/\\?"PublicUrl\\?"\s*:\s*\\?"([^"\\]+)/);
+        if (match && match[1]) {
+          origin = match[1];
+          console.log(`[API Upload] Successfully detected active cpolar public URL: ${origin}`);
+        }
+      }
+    } catch {
+      clearTimeout(timeoutId);
+      // Fail silently and fall back
+    }
+
+    // 2. If cpolar not detected, fall back to process.env.PUBLIC_URL
+    if (!origin && process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim() !== '') {
+      origin = process.env.PUBLIC_URL;
+    }
+
+    // 3. If still not resolved, fall back to request headers (e.g. x-forwarded-host) or current URL origin
+    if (!origin) {
+      const hostHeader = request.headers.get('x-forwarded-host') || request.headers.get('host');
+      const protoHeader = request.headers.get('x-forwarded-proto') || 'http';
+      origin = hostHeader ? `${protoHeader}://${hostHeader}` : new URL(request.url).origin;
+    }
 
     // Use our LocalDiskStorageAdapter deep module
     const storage = new LocalDiskStorageAdapter(origin);
