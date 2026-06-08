@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './Sidebar.module.css';
 
 export interface EraseTask {
@@ -35,6 +35,7 @@ export default function Sidebar({
   onDeleteTask,
   onClearHistory,
 }: SidebarProps) {
+  const [checkingTaskIds, setCheckingTaskIds] = useState<Record<string, boolean>>({});
   return (
     <aside className={styles.sidebar}>
       {/* Logo Section */}
@@ -209,6 +210,58 @@ export default function Sidebar({
                       {formattedDate} {formattedTime}
                     </span>
                   </div>
+                  {task.status === 'completed' && task.cleanedVideoUrl && (
+                    <div className={styles.taskActions}>
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (checkingTaskIds[task.id]) return;
+
+                          setCheckingTaskIds((prev) => ({ ...prev, [task.id]: true }));
+                          try {
+                            const res = await fetch(`/api/check-url?url=${encodeURIComponent(task.cleanedVideoUrl || '')}`);
+                            const data = await res.json();
+                            if (res.ok && data.valid) {
+                              window.open(task.cleanedVideoUrl, '_blank');
+                            } else {
+                              alert('Cleaned Video 链接已过期，请重新上传视频并发起擦除任务。');
+                            }
+                          } catch {
+                            alert('Cleaned Video 链接已过期，请重新上传视频并发起擦除任务。');
+                          } finally {
+                            setCheckingTaskIds((prev) => ({ ...prev, [task.id]: false }));
+                          }
+                        }}
+                        disabled={checkingTaskIds[task.id]}
+                      >
+                        {checkingTaskIds[task.id] ? (
+                          <>
+                            <span className={styles.spinner} />
+                            <span>校验中...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            <span>重新下载</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })
