@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { GET } from '../route';
 import fs from 'fs/promises';
-import path from 'path';
 
 describe('GET /api/tasks/[id]', () => {
   beforeEach(() => {

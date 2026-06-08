@@ -5,6 +5,7 @@ import Sidebar, { EraseTask } from './components/Sidebar/Sidebar';
 import MainDashboard from './components/MainDashboard/MainDashboard';
 import { PollingEngine } from './services/polling/PollingEngine';
 import { BatchUploadManager } from './services/batch/BatchUploadManager';
+import { deleteTask, prepareTasksForStorage } from './services/history/taskHistoryHelper';
 
 const formatError = (err: unknown): string => {
   if (!err) return '';
@@ -96,48 +97,31 @@ export default function Home() {
       });
 
       // 💡 核心设计：在写入 localStorage 之前，对任务列表中的任务日志进行持久化瘦身
-      const tasksToSave = deduped.map((task) => {
-        // 如果是正在进行中或上传中的任务，不存储其庞大日志，反正刷新后它们需要被重新处理或重置
-        if (task.status === 'processing' || task.status === 'uploading') {
-          return { ...task, logs: undefined };
-        }
-        
-        // 如果是已进入终态的任务，我们执行日志裁剪归档，仅保留 4-5 条具备核心业务价值的“里程碑归档日志”
-        if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
-          let archivedLogs: string[] = [];
-          
-          if (task.status === 'completed') {
-            archivedLogs = [
-              `[SYSTEM] ✨ 这是一个已完成的历史任务.`,
-              `[SYSTEM] 🟢 火山任务 ID: ${task.id}`,
-              `[SYSTEM] 🎞️ 原视频地址: ${task.videoUrl}`,
-              `[SYSTEM] 🎬 擦除视频地址: ${task.cleanedVideoUrl}`,
-              `[SYSTEM] 🚀 双视频左右同步播放器已装载完成。`,
-              `[SYSTEM] 🧹 [系统清理] 任务进入终态，系统已物理删除服务器本地视频暂存文件。`
-            ];
-          } else if (task.status === 'failed') {
-            archivedLogs = [
-              `[SYSTEM] ❌ 这是一个已失败的历史任务.`,
-              `[SYSTEM] 🔴 火山任务 ID: ${task.id}`,
-              `[SYSTEM] ⚠️ 任务执行失败。您可以重新发起任务请求。`
-            ];
-          } else if (task.status === 'cancelled') {
-            archivedLogs = [
-              `[SYSTEM] ❌ 这是一个已被用户终止的历史任务.`,
-              `[SYSTEM] 🔴 火山任务 ID: ${task.id}`,
-              `[SYSTEM] ⚠️ 任务已于处理期间由用户主动点击终止。`,
-              `[SYSTEM] 🟢 本地服务器将根据生命周期管理自动回收相关暂存资源。`
-            ];
-          }
-          return { ...task, logs: archivedLogs };
-        }
-        
-        return task;
-      });
+      const tasksToSave = prepareTasksForStorage(deduped);
 
       localStorage.setItem('amk-erase-tasks-history', JSON.stringify(tasksToSave));
       return deduped;
     });
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    const taskToDelete = tasksRef.current.find((t) => t.id === taskId);
+    if (!taskToDelete || taskToDelete.status === 'uploading' || taskToDelete.status === 'processing') {
+      return;
+    }
+
+    updateTasks((prev) => deleteTask(prev, taskId));
+
+    if (activeTaskIdRef.current === taskId) {
+      handleReset();
+    }
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm('您确定要清空所有任务历史吗？此操作无法撤销。')) {
+      updateTasks([]);
+      handleReset();
+    }
   };
 
   // 同步引用 tasks 状态以防异步定时器因闭包机制拿到旧值
@@ -385,6 +369,7 @@ export default function Home() {
   // 监听任务队列的变化，一旦发生状态转移，自发唤醒队列调度机制
   useEffect(() => {
     scheduleNextPoll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
   const handleApiKeyChange = (key: string) => {
@@ -777,6 +762,8 @@ export default function Home() {
         tasks={tasks}
         activeTaskId={activeTaskId}
         onTaskSelect={handleTaskSelect}
+        onDeleteTask={handleDeleteTask}
+        onClearHistory={handleClearHistory}
       />
 
       {/* Right Workstation Dashboard */}

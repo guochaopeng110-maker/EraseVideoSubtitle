@@ -3,7 +3,7 @@ import { BatchUploadManager } from '../BatchUploadManager';
 
 // --- XHR Mock Infrastructure ---
 class MockXHRUpload {
-  onprogress: any = undefined;
+  onprogress: ((event: { lengthComputable: boolean; loaded: number; total: number }) => void) | undefined = undefined;
 }
 
 class MockXHR {
@@ -14,8 +14,8 @@ class MockXHR {
   status = 200;
   responseText = '{}';
   upload = new MockXHRUpload();
-  onload: any = undefined;
-  onerror: any = undefined;
+  onload: (() => void) | undefined = undefined;
+  onerror: (() => void) | undefined = undefined;
   sentFormData: FormData | null = null;
 
   constructor() {

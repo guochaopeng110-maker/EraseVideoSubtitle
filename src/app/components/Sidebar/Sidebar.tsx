@@ -22,6 +22,8 @@ interface SidebarProps {
   tasks?: EraseTask[];
   activeTaskId?: string;
   onTaskSelect?: (task: EraseTask) => void;
+  onDeleteTask?: (taskId: string) => void;
+  onClearHistory?: () => void;
 }
 
 export default function Sidebar({
@@ -30,6 +32,8 @@ export default function Sidebar({
   tasks = [],
   activeTaskId,
   onTaskSelect,
+  onDeleteTask,
+  onClearHistory,
 }: SidebarProps) {
   return (
     <aside className={styles.sidebar}>
@@ -159,13 +163,40 @@ export default function Sidebar({
                 day: 'numeric',
               });
 
+              const isTerminal = task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
+
               return (
                 <div
                   key={task.id}
                   className={`${styles.taskCard} ${isActive ? styles.taskCardActive : ''}`}
                   onClick={() => onTaskSelect?.(task)}
                 >
-                  <div className={styles.taskCardHeader}>
+                  {isTerminal && (
+                    <button
+                      className={styles.deleteBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTask?.(task.id);
+                      }}
+                      title="删除任务"
+                      aria-label="Delete task"
+                    >
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                  <div className={`${styles.taskCardHeader} ${isTerminal ? styles.taskCardHeaderWithDelete : ''}`}>
                     <span className={styles.taskName} title={task.name}>
                       {task.name.length > 22 ? `${task.name.substring(0, 20)}...` : task.name}
                     </span>
@@ -183,6 +214,30 @@ export default function Sidebar({
             })
           )}
         </div>
+        {tasks.length > 0 && (
+          <button
+            className={styles.clearHistoryBtn}
+            onClick={onClearHistory}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ marginRight: '6px' }}
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              <line x1="10" y1="11" x2="10" y2="17" />
+              <line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
+            清空所有历史
+          </button>
+        )}
       </div>
     </aside>
   );
