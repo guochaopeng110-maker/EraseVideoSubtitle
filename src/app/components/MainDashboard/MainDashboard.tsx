@@ -10,6 +10,7 @@ interface MainDashboardProps {
   onVideoUrlChange: (url: string) => void;
   onSubmit: () => void;
   onFileSelect: (file: File) => void;
+  onFilesSelect?: (files: File[]) => void;
   uploadProgress: number | null;
   uploading: boolean;
   
@@ -32,6 +33,7 @@ export default function MainDashboard({
   onVideoUrlChange,
   onSubmit,
   onFileSelect,
+  onFilesSelect,
   uploadProgress,
   uploading,
   taskStatus,
@@ -124,7 +126,16 @@ export default function MainDashboard({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      onFileSelect(e.target.files[0]);
+      const fileList = Array.from(e.target.files);
+      if (fileList.length === 1) {
+        onFileSelect(fileList[0]);
+      } else if (fileList.length > 1 && onFilesSelect) {
+        onFilesSelect(fileList);
+      } else {
+        onFileSelect(fileList[0]);
+      }
+      // Reset input so same files can be re-selected
+      e.target.value = '';
     }
   };
 
@@ -144,7 +155,14 @@ export default function MainDashboard({
     if (uploading || taskStatus === 'processing') return;
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      onFileSelect(e.dataTransfer.files[0]);
+      const fileList = Array.from(e.dataTransfer.files);
+      if (fileList.length === 1) {
+        onFileSelect(fileList[0]);
+      } else if (fileList.length > 1 && onFilesSelect) {
+        onFilesSelect(fileList);
+      } else {
+        onFileSelect(fileList[0]);
+      }
     }
   };
 
@@ -572,6 +590,7 @@ export default function MainDashboard({
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 accept="video/*"
+                multiple
                 style={{ display: 'none' }}
               />
 

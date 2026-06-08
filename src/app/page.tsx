@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar, { EraseTask } from './components/Sidebar/Sidebar';
 import MainDashboard from './components/MainDashboard/MainDashboard';
 import { PollingEngine } from './services/polling/PollingEngine';
+import { BatchUploadManager } from './services/batch/BatchUploadManager';
 
 const formatError = (err: unknown): string => {
   if (!err) return '';
@@ -398,7 +399,7 @@ export default function Home() {
   };
 
   // Submit Erase Task to /api/tasks Proxy
-  const handleStartErase = async (urlToUse?: string) => {
+  const handleStartErase = async (urlToUse?: string, provisionalTaskId?: string) => {
     const targetUrl = urlToUse || videoUrl;
     if (!targetUrl) {
       alert('请先上传视频文件或粘贴公网视频 URL。');
@@ -410,16 +411,27 @@ export default function Home() {
       return;
     }
 
-    setTaskStatus('processing');
-    setErrorMessage('');
-    setTaskLogs([]);
-    setElapsedSeconds(0);
+    const currentActiveTaskId = provisionalTaskId || activeTaskIdRef.current;
+    const isCurrentView = !provisionalTaskId || activeTaskIdRef.current === provisionalTaskId;
 
-    addLog(`🚀 正在发起向火山引擎的字幕擦除处理请求...`);
-    addLog(`⚙️ 版本选择: [${isPro ? '精细化 Pro 版' : '标准 Standard 版'}]`);
-    addLog(`📦 视频地址: ${targetUrl.substring(0, 50)}${targetUrl.length > 50 ? '...' : ''}`);
+    if (isCurrentView) {
+      setTaskStatus('processing');
+      setErrorMessage('');
+      setTaskLogs([]);
+      setElapsedSeconds(0);
+    }
 
-    const currentActiveTaskId = activeTaskIdRef.current;
+    const logMsg = (msg: string) => {
+      if (currentActiveTaskId) {
+        addLogForTask(currentActiveTaskId, msg);
+      } else {
+        addLog(msg);
+      }
+    };
+
+    logMsg(`🚀 正在发起向火山引擎的字幕擦除处理请求...`);
+    logMsg(`⚙️ 版本选择: [${isPro ? '精细化 Pro 版' : '标准 Standard 版'}]`);
+    logMsg(`📦 视频地址: ${targetUrl.substring(0, 50)}${targetUrl.length > 50 ? '...' : ''}`);
 
     try {
       const res = await fetch('/api/tasks', {
@@ -436,9 +448,6 @@ export default function Home() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        addLog(`🔑 任务提交成功！火山引擎分配 TaskID: ${data.taskId}`);
-        addLog(`🔍 开始轮询查询处理进度 (采用自适应指数退避延时算法)...`);
-
         // Handle integration with provisional upload tasks
         updateTasks((prevTasks) => {
           const taskExists = prevTasks.some((t) => t.id === currentActiveTaskId);
@@ -464,14 +473,30 @@ export default function Home() {
           }
         });
 
-        // Set state to start polling on this final taskId
-        setActiveTaskId(data.taskId);
+        const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        const successLog1 = `[${timeStr}] 🔑 任务提交成功！火山引擎分配 TaskID: ${data.taskId}`;
+        const successLog2 = `[${timeStr}] 🔍 开始轮询查询处理进度 (采用自适应指数退避延时算法)...`;
+        
+        setTasks((prevTasks) =>
+          prevTasks.map((t) =>
+            t.id === data.taskId
+              ? { ...t, logs: [...(t.logs || []), successLog1, successLog2] }
+              : t
+          )
+        );
+
+        if (isCurrentView) {
+          setTaskLogs((prev) => [...prev, successLog1, successLog2]);
+          setActiveTaskId(data.taskId);
+        }
       } else {
         const errorMsg = formatError(data.error) || '火山引擎字幕擦除服务提交失败。';
-        addLog(`❌ 任务提交被拒绝: ${errorMsg}`);
+        logMsg(`❌ 任务提交被拒绝: ${errorMsg}`);
         
-        setTaskStatus('failed');
-        setErrorMessage(errorMsg);
+        if (isCurrentView) {
+          setTaskStatus('failed');
+          setErrorMessage(errorMsg);
+        }
         if (currentActiveTaskId) {
           updateTasks((prevTasks) =>
             prevTasks.map((t) => (t.id === currentActiveTaskId ? { ...t, status: 'failed' as const } : t))
@@ -480,10 +505,12 @@ export default function Home() {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '与火山引擎代理网关通信失败';
-      addLog(`❌ 严重网络异常: ${errorMsg}`);
+      logMsg(`❌ 严重网络异常: ${errorMsg}`);
       
-      setTaskStatus('failed');
-      setErrorMessage(errorMsg);
+      if (isCurrentView) {
+        setTaskStatus('failed');
+        setErrorMessage(errorMsg);
+      }
       if (currentActiveTaskId) {
         updateTasks((prevTasks) =>
           prevTasks.map((t) => (t.id === currentActiveTaskId ? { ...t, status: 'failed' as const } : t))
@@ -574,6 +601,109 @@ export default function Home() {
     xhr.send(formData);
   };
 
+  // Process multiple drag & drop and local files batch uploads
+  const handleFilesSelect = (files: File[]) => {
+    if (taskStatus === 'processing' || uploading) return;
+
+    if (!apiKey) {
+      alert('请在侧边栏配置您的火山引擎 API Key 以供认证。');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+    setTaskStatus('uploading');
+
+    // 1. Prepare tasks and store their temporary IDs
+    const fileEntries: { file: File; tempId: string }[] = files.map((file, idx) => {
+      const tempId = `amk-batch-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
+      return { file, tempId };
+    });
+
+    const newTasks: EraseTask[] = fileEntries.map((entry) => ({
+      id: entry.tempId,
+      name: entry.file.name,
+      status: 'uploading',
+      createdAt: Date.now(),
+      logs: [`[SYSTEM] 📂 [批处理] 文件加入上传队列，等待分配上传通道...`],
+    }));
+
+    // Insert tasks into sidebar task list
+    updateTasks((prev) => [...newTasks, ...prev]);
+
+    // Active the first task in UI
+    const firstTempId = fileEntries[0].tempId;
+    setActiveTaskId(firstTempId);
+
+    // Map files to tempIds for tracking callbacks
+    const tempIdMap = new Map<File, string>();
+    fileEntries.forEach((entry) => {
+      tempIdMap.set(entry.file, entry.tempId);
+    });
+
+    // 2. Instantiate BatchUploadManager
+    const manager = new BatchUploadManager(files, {
+      maxConcurrency: 2,
+      onStateChange: (entries) => {
+        // Synchronously reflect upload progress changes in UI state
+        // For the currently viewed task, update uploadProgress
+        const currentActiveId = activeTaskIdRef.current;
+        const currentEntry = entries.find((e) => tempIdMap.get(e.file) === currentActiveId);
+        if (currentEntry) {
+          if (currentEntry.status === 'uploading') {
+            setUploadProgress(currentEntry.progress);
+            setTaskStatus('uploading');
+          } else if (currentEntry.status === 'uploaded') {
+            setUploadProgress(null);
+          } else if (currentEntry.status === 'failed') {
+            setUploadProgress(null);
+            setTaskStatus('failed');
+            setErrorMessage(currentEntry.error || '上传失败');
+          }
+        }
+      },
+      onFileUploaded: (file, url) => {
+        const tempId = tempIdMap.get(file);
+        if (!tempId) return;
+
+        // Add logs to this specific task
+        addLogForTask(tempId, `🟢 文件上传暂存成功！开始发起擦除请求...`);
+
+        // Trigger Volcengine client subtitle erasing API
+        handleStartErase(url, tempId);
+      },
+      onFileFailed: (file, error) => {
+        const tempId = tempIdMap.get(file);
+        if (!tempId) return;
+
+        addLogForTask(tempId, `❌ 文件上传失败: ${error}`);
+
+        updateTasks((prevTasks) =>
+          prevTasks.map((t) => (t.id === tempId ? { ...t, status: 'failed' as const } : t))
+        );
+
+        // If this is current view, show error state in UI
+        if (activeTaskIdRef.current === tempId) {
+          setTaskStatus('failed');
+          setErrorMessage(error);
+          setUploadProgress(null);
+        }
+      },
+      onBatchComplete: () => {
+        setUploading(false);
+        setUploadProgress(null);
+        // If the current active task is still showing uploading, transition to processing/idle
+        const currentActiveId = activeTaskIdRef.current;
+        const currentTask = tasksRef.current.find((t) => t.id === currentActiveId);
+        if (currentTask && currentTask.status === 'uploading') {
+          setTaskStatus('idle');
+        }
+      },
+    });
+
+    manager.start();
+  };
+
   const handleTaskSelect = (task: EraseTask) => {
     setActiveTaskId(task.id);
     setTaskStatus(task.status);
@@ -655,6 +785,7 @@ export default function Home() {
         onVideoUrlChange={handleVideoUrlChange}
         onSubmit={() => handleStartErase()}
         onFileSelect={handleFileSelect}
+        onFilesSelect={handleFilesSelect}
         uploadProgress={uploadProgress}
         uploading={uploading}
         taskStatus={taskStatus}
