@@ -60,3 +60,28 @@ export function prepareTasksForStorage(tasks: EraseTask[]): EraseTask[] {
     return task;
   });
 }
+
+/**
+ * 决定在队列自动推进时，主仪表盘是否应该以及如何自动切换到下一个任务。
+ * 只有在用户目前处于刚刚完成的任务视图下（即 activeTaskId === finishedTaskId）时，
+ * 才自动推进到下一个待轮询（最早创建的 processing 状态）的任务。
+ * 如果用户已经切换到了其他任务，则不进行自动切换（返回原 activeTaskId）。
+ */
+export function getNextActiveTaskIdOnQueueAdvance(
+  activeTaskId: string,
+  finishedTaskId: string,
+  tasks: { id: string; status: string; createdAt: number }[]
+): string {
+  if (activeTaskId !== finishedTaskId) {
+    return activeTaskId;
+  }
+
+  // 寻找到下一个最早提交的、且 status 依然为 'processing' 的任务
+  const nextTask = [...tasks]
+    .filter((t) => t.id !== finishedTaskId) // 排除刚刚完成的任务
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .find((t) => t.status === 'processing');
+
+  return nextTask ? nextTask.id : activeTaskId;
+}
+

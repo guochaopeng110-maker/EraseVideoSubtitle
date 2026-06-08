@@ -21,6 +21,7 @@ interface SidebarProps {
   onApiKeyChange: (key: string) => void;
   tasks?: EraseTask[];
   activeTaskId?: string;
+  currentPollingTaskId?: string | null;
   onTaskSelect?: (task: EraseTask) => void;
   onDeleteTask?: (taskId: string) => void;
   onClearHistory?: () => void;
@@ -31,6 +32,7 @@ export default function Sidebar({
   onApiKeyChange,
   tasks = [],
   activeTaskId,
+  currentPollingTaskId,
   onTaskSelect,
   onDeleteTask,
   onClearHistory,
@@ -141,8 +143,13 @@ export default function Sidebar({
                 statusLabel = '上传中';
                 statusClass = styles.tagUploading;
               } else if (task.status === 'processing') {
-                statusLabel = '处理中';
-                statusClass = styles.tagProcessing;
+                if (task.id === currentPollingTaskId) {
+                  statusLabel = '处理中';
+                  statusClass = styles.tagProcessing;
+                } else {
+                  statusLabel = '排队中';
+                  statusClass = styles.tagQueued;
+                }
               } else if (task.status === 'completed') {
                 statusLabel = '已完成';
                 statusClass = styles.tagCompleted;

@@ -5,7 +5,7 @@ import Sidebar, { EraseTask } from './components/Sidebar/Sidebar';
 import MainDashboard from './components/MainDashboard/MainDashboard';
 import { PollingEngine } from './services/polling/PollingEngine';
 import { BatchUploadManager } from './services/batch/BatchUploadManager';
-import { deleteTask, prepareTasksForStorage } from './services/history/taskHistoryHelper';
+import { deleteTask, prepareTasksForStorage, getNextActiveTaskIdOnQueueAdvance } from './services/history/taskHistoryHelper';
 
 const formatError = (err: unknown): string => {
   if (!err) return '';
@@ -28,6 +28,7 @@ export default function Home() {
 
   const [taskStatus, setTaskStatus] = useState<'idle' | 'uploading' | 'processing' | 'completed' | 'failed' | 'cancelled'>('idle');
   const [activeTaskId, setActiveTaskId] = useState<string>('');
+  const [currentPollingTaskId, setCurrentPollingTaskId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   // Create a ref to store the latest activeTaskId to resolve stale closure issues in upload callback
@@ -155,6 +156,24 @@ export default function Home() {
     );
   };
 
+  // 释放独占轮询通道，并自动将视图推进到下一个任务
+  const releasePollingAndAdvance = (finishedTaskId: string) => {
+    const nextActiveId = getNextActiveTaskIdOnQueueAdvance(
+      activeTaskIdRef.current,
+      finishedTaskId,
+      tasksRef.current
+    );
+    if (nextActiveId !== activeTaskIdRef.current) {
+      const nextActiveTask = tasksRef.current.find((t) => t.id === nextActiveId);
+      if (nextActiveTask) {
+        handleTaskSelect(nextActiveTask);
+      }
+    }
+    currentPollingTaskIdRef.current = null;
+    setCurrentPollingTaskId(null);
+    scheduleNextPoll();
+  };
+
   // 后台单任务串行轮询调度函数 (FIFO 排队管理器)
   const scheduleNextPoll = () => {
     // 1. 检查是否有任务正在被轮询，如果是，为保证 QPS 频控，不发起并发线程
@@ -173,6 +192,7 @@ export default function Home() {
 
     const taskId = nextTask.id;
     currentPollingTaskIdRef.current = taskId;
+    setCurrentPollingTaskId(taskId);
     console.log(`[Queue Manager] 后台队列已激活并独占轮询通道，目标 TaskID: ${taskId}`);
 
     // 3. 初始化或恢复该任务 of 轮询状态统计
@@ -242,9 +262,8 @@ export default function Home() {
           setErrorMessage('任务处理超时，火山引擎任务可能异常。队列安全调度器已自动熔断。');
         }
 
-        // 释放独占，递归自我驱动唤醒队列下一位
-        currentPollingTaskIdRef.current = null;
-        scheduleNextPoll();
+        // 释放独占并自动推进，递归自我驱动唤醒队列下一位
+        releasePollingAndAdvance(taskId);
         return;
       }
 
@@ -278,9 +297,8 @@ export default function Home() {
                 setTaskStatus('completed');
               }
 
-              // 释放独占，唤醒下一个排队任务
-              currentPollingTaskIdRef.current = null;
-              scheduleNextPoll();
+              // 释放独占并自动推进，唤醒下一个排队任务
+              releasePollingAndAdvance(taskId);
               return;
             } else if (data.status === 'failed') {
               if (stopwatchTimer) clearInterval(stopwatchTimer);
@@ -298,9 +316,8 @@ export default function Home() {
                 setErrorMessage(errText);
               }
 
-              // 释放独占，唤醒下一个排队任务
-              currentPollingTaskIdRef.current = null;
-              scheduleNextPoll();
+              // 释放独占并自动推进，唤醒下一个排队任务
+              releasePollingAndAdvance(taskId);
               return;
             } else {
               // 仍处于处理中
@@ -326,8 +343,7 @@ export default function Home() {
               setErrorMessage(errText);
             }
 
-            currentPollingTaskIdRef.current = null;
-            scheduleNextPoll();
+            releasePollingAndAdvance(taskId);
             return;
           }
         } else {
@@ -347,8 +363,7 @@ export default function Home() {
             setErrorMessage(errText);
           }
 
-          currentPollingTaskIdRef.current = null;
-          scheduleNextPoll();
+          releasePollingAndAdvance(taskId);
           return;
         }
       } catch (err) {
@@ -734,6 +749,7 @@ export default function Home() {
         pollingTimerRef.current = null;
       }
       currentPollingTaskIdRef.current = null;
+      setCurrentPollingTaskId(null);
       console.log(`[Queue Manager] 用户手动终止了正在活跃轮询的任务: ${currentActiveId}。已强行掐断并释放锁。`);
     }
 
@@ -761,6 +777,7 @@ export default function Home() {
         onApiKeyChange={handleApiKeyChange}
         tasks={tasks}
         activeTaskId={activeTaskId}
+        currentPollingTaskId={currentPollingTaskId}
         onTaskSelect={handleTaskSelect}
         onDeleteTask={handleDeleteTask}
         onClearHistory={handleClearHistory}
@@ -780,6 +797,7 @@ export default function Home() {
         uploading={uploading}
         taskStatus={taskStatus}
         activeTaskId={activeTaskId}
+        currentPollingTaskId={currentPollingTaskId}
         errorMessage={errorMessage}
         onReset={handleReset}
         onCancel={handleCancel}

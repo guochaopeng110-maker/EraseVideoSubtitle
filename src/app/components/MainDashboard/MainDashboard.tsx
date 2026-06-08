@@ -19,6 +19,7 @@ interface MainDashboardProps {
   
   taskStatus: 'idle' | 'uploading' | 'processing' | 'completed' | 'failed' | 'cancelled';
   activeTaskId: string;
+  currentPollingTaskId?: string | null;
   errorMessage: string;
   onReset: () => void;
   onCancel?: () => void;
@@ -42,6 +43,7 @@ export default function MainDashboard({
   uploading,
   taskStatus,
   activeTaskId,
+  currentPollingTaskId,
   errorMessage,
   onReset,
   onCancel,
@@ -259,10 +261,12 @@ export default function MainDashboard({
               <div className={styles.pipelineHeader}>
                 <div style={{ textAlign: 'left' }}>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
-                    ⚡ AI 擦除任务后台分析中
+                    {activeTaskId === currentPollingTaskId ? '⚡ AI 擦除任务后台分析中' : '⏳ 任务排队中 (Queued)'}
                   </h3>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-                    正在实时同步火山引擎 API 异步处理状态流与日志追踪...
+                    {activeTaskId === currentPollingTaskId 
+                      ? '正在实时同步火山引擎 API 异步处理状态流与日志追踪...' 
+                      : '等待前序任务处理完成，自动释放轮询通道后开始分析...'}
                   </p>
                 </div>
                 {activeTaskId && (

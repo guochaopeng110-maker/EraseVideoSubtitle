@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deleteTask, prepareTasksForStorage } from '../taskHistoryHelper';
+import { deleteTask, prepareTasksForStorage, getNextActiveTaskIdOnQueueAdvance } from '../taskHistoryHelper';
 import { EraseTask } from '../../../components/Sidebar/Sidebar';
 
 describe('deleteTask', () => {
@@ -80,4 +80,38 @@ describe('prepareTasksForStorage', () => {
     expect(result[2].logs).toContain('[SYSTEM] ❌ 这是一个已被用户终止的历史任务.');
   });
 });
+
+describe('getNextActiveTaskIdOnQueueAdvance', () => {
+  it('should NOT change the active task if the user has already switched to a different task', () => {
+    const tasks: EraseTask[] = [
+      { id: 'task-1', name: 'v1.mp4', status: 'completed', createdAt: 1000 },
+      { id: 'task-2', name: 'v2.mp4', status: 'processing', createdAt: 2000 },
+    ];
+    // user is currently viewing 'task-2', but 'task-1' has just finished.
+    const result = getNextActiveTaskIdOnQueueAdvance('task-2', 'task-1', tasks);
+    expect(result).toBe('task-2');
+  });
+
+  it('should switch to the next processing task in FIFO order if user was viewing the finished task', () => {
+    const tasks: EraseTask[] = [
+      { id: 'task-1', name: 'v1.mp4', status: 'completed', createdAt: 1000 },
+      { id: 'task-2', name: 'v2.mp4', status: 'processing', createdAt: 2000 },
+      { id: 'task-3', name: 'v3.mp4', status: 'processing', createdAt: 3000 },
+    ];
+    // user was viewing 'task-1', which just completed. Queue should auto-advance to 'task-2' because it has earlier createdAt than 'task-3'.
+    const result = getNextActiveTaskIdOnQueueAdvance('task-1', 'task-1', tasks);
+    expect(result).toBe('task-2');
+  });
+
+  it('should return the original active task if there are no more processing tasks in queue', () => {
+    const tasks: EraseTask[] = [
+      { id: 'task-1', name: 'v1.mp4', status: 'completed', createdAt: 1000 },
+      { id: 'task-2', name: 'v2.mp4', status: 'completed', createdAt: 2000 },
+    ];
+    // user was viewing 'task-1', which completed. No more tasks are processing.
+    const result = getNextActiveTaskIdOnQueueAdvance('task-1', 'task-1', tasks);
+    expect(result).toBe('task-1');
+  });
+});
+
 
