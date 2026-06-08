@@ -2,8 +2,11 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import styles from './MainDashboard.module.css';
+import { EraseTask } from '../Sidebar/Sidebar';
+import { getBatchStats } from './batchUtils';
 
 interface MainDashboardProps {
+  tasks?: EraseTask[];
   isPro: boolean;
   onIsProChange: (value: boolean) => void;
   videoUrl: string;
@@ -27,6 +30,7 @@ interface MainDashboardProps {
 }
 
 export default function MainDashboard({
+  tasks = [],
   isPro,
   onIsProChange,
   videoUrl,
@@ -183,6 +187,7 @@ export default function MainDashboard({
   };
 
   const isCompleted = taskStatus === 'completed';
+  const batchStats = getBatchStats(tasks, activeTaskId);
 
   return (
     <main className={styles.dashboard}>
@@ -206,6 +211,48 @@ export default function MainDashboard({
       <div className={styles.workspaceContent}>
         <div className={styles.workstationCard}>
           
+          {/* 0. Batch Progress Overview Bar */}
+          {batchStats && (
+            <div className={styles.batchOverviewBar}>
+              <div className={styles.batchOverviewHeader}>
+                <div className={styles.batchOverviewTitle}>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    className={styles.batchOverviewIcon}
+                  >
+                    <rect x="3" y="3" width="7" height="9" rx="1" />
+                    <rect x="14" y="3" width="7" height="5" rx="1" />
+                    <rect x="14" y="12" width="7" height="9" rx="1" />
+                    <rect x="3" y="16" width="7" height="5" rx="1" />
+                  </svg>
+                  <span>批量处理进度概览</span>
+                </div>
+                <div className={styles.batchOverviewText}>
+                  批量上传: <strong className={styles.batchOverviewHighlight}>{batchStats.uploaded}/{batchStats.total}</strong> 已上传 |{' '}
+                  <strong className={styles.batchOverviewHighlight}>{batchStats.processing}</strong> 处理中 |{' '}
+                  <strong className={styles.batchOverviewHighlight}>{batchStats.completed}</strong> 已完成 |{' '}
+                  <strong className={styles.batchOverviewHighlight}>{batchStats.failed}</strong> 失败
+                </div>
+              </div>
+              
+              <div className={styles.batchProgressBarTrack}>
+                <div
+                  className={styles.batchProgressBarUploadFill}
+                  style={{ width: `${(batchStats.uploaded / batchStats.total) * 100}%` }}
+                />
+                <div
+                  className={styles.batchProgressBarCompleteFill}
+                  style={{ width: `${((batchStats.uploaded - batchStats.processing) / batchStats.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* 1. Processing (AI Log Terminal Console) View */}
           {taskStatus === 'processing' && !isCompleted && (
             <div className={styles.pipelineContainer}>

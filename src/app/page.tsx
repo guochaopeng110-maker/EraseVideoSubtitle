@@ -615,6 +615,7 @@ export default function Home() {
     setTaskStatus('uploading');
 
     // 1. Prepare tasks and store their temporary IDs
+    const batchId = `batch-${Date.now()}`;
     const fileEntries: { file: File; tempId: string }[] = files.map((file, idx) => {
       const tempId = `amk-batch-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
       return { file, tempId };
@@ -625,6 +626,7 @@ export default function Home() {
       name: entry.file.name,
       status: 'uploading',
       createdAt: Date.now(),
+      batchId,
       logs: [`[SYSTEM] 📂 [批处理] 文件加入上传队列，等待分配上传通道...`],
     }));
 
@@ -779,6 +781,7 @@ export default function Home() {
 
       {/* Right Workstation Dashboard */}
       <MainDashboard
+        tasks={tasks}
         isPro={isPro}
         onIsProChange={setIsPro}
         videoUrl={videoUrl}

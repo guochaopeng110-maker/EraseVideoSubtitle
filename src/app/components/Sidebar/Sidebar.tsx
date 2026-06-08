@@ -13,6 +13,7 @@ export interface EraseTask {
   logs?: string[];
   pollCount?: number;
   elapsedSeconds?: number;
+  batchId?: string;
 }
 
 interface SidebarProps {
