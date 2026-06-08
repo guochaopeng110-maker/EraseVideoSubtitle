@@ -134,7 +134,7 @@ describe('GET /api/tasks/[id]', () => {
     expect(json.error).toContain('The task result has expired');
   });
 
-  it('should immediately trigger physical cleanup of local uploaded file when task reaches completed state', async () => {
+  it('should not immediately trigger physical cleanup of local uploaded file when task reaches completed state to preserve it for comparison', async () => {
     vi.stubEnv('VOLCENGINE_API_KEY', 'env-key-999');
 
     // 1. Spy on fs.unlink
@@ -167,10 +167,8 @@ describe('GET /api/tasks/[id]', () => {
     expect(json.success).toBe(true);
     expect(json.status).toBe('completed');
 
-    // 3. Assert that fs.unlink was called to physically delete the source video
-    expect(unlinkSpy).toHaveBeenCalled();
-    const expectedPathPart = path.join('public', 'uploads', '123-source-video.mp4');
-    expect(unlinkSpy.mock.calls[0][0].toString()).toContain(expectedPathPart);
+    // 3. Assert that fs.unlink was NOT called to preserve the source video for workbench comparison
+    expect(unlinkSpy).not.toHaveBeenCalled();
 
     unlinkSpy.mockRestore();
   });
